@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Database Query Executor</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+<div class="container">
+  <h2>Client List (Before Last Query Execution)</h2>
+  <table border="1" class="client-info-table">
+    <thead>
+    <tr>
+      <th>ID</th>
+      <th>Name</th>
+      <th>Surname</th>
+      <th>Group</th>
+      <th>Paid Form</th>
+    </tr>
+    </thead>
+    <tbody id="previousState">
+    <tr th:each="s : ${students}">
+      <td th:text="${s.getId()}"></td>
+      <td th:text="${s.getName()}"></td>
+      <td th:text="${s.getSurname()}"></td>
+      <td th:text="${s.getStudent_group()}"></td>
+      <td th:text="${s.getPaid_form()}"></td>
+    </tr>
+    </tbody>
+  </table>
+</div>
+
+<hr>
+<label for="queryInput">Enter SQL Query:</label><br>
+<textarea id="queryInput" rows="4" cols="50"></textarea>
+
+<br><br>
+
+<button onclick="executeQuery('JDBC')">Execute via JDBC</button>
+<button onclick="executeQuery('JPA')">Execute via JPA</button>
+
+<h3>Execution Time:</h3>
+<p id="executionTime">-</p>
+
+<h2>Client List (After Query Execution)</h2>
+<table border="1" id="resultTable">
+  <thead>
+  <tr>
+    <th>ID</th>
+    <th>Name</th>
+    <th>Surname</th>
+    <th>Group</th>
+    <th>Paid Form</th>
+  </tr>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+
+<script>
+  function executeQuery(connectionType) {
+    let sql = $("#queryInput").val();
+    let startTime = performance.now();
+
+    savePreviousState();
+
+    $.post("/database/query", { sql: sql, connectionType: connectionType }, function(data) {
+      let endTime = performance.now();
+      $("#executionTime").text((endTime - startTime).toFixed(2) + " ms");
+      if (Array.isArray(data)) {
+        updateTable(data, "#resultTable tbody");
+      } else {
+        alert(data);
+        reloadUpdatedTable();
+      }
+    }).fail(function(xhr) {
+      alert("Error: " + xhr.responseText);
+    });
+  }
+
+  function savePreviousState() {
+    $.get("/students/previous", function(data) {
+      updateTable(data, "#previousState");
+    }).fail(function(xhr) {
+      alert("Error loading previous state: " + xhr.responseText);
+    });
+  }
+
+  function updateTable(data, tableSelector) {
+    let tableBody = $(tableSelector);
+    tableBody.empty();
+
+    if (data.length === 0) {
+      tableBody.append("<tr><td colspan='5'>No results</td></tr>");
+      return;
+    }
+
+    data.forEach(row => {
+      let rowHtml = `<tr>
+            <td>${row.id}</td>
+            <td>${row.name}</td>
+            <td>${row.surname}</td>
+            <td>${row.student_group}</td>
+            <td>${row.paid_form}</td>
+        </tr>`;
+      tableBody.append(rowHtml);
+    });
+  }
+
+  function reloadUpdatedTable() {
+    $.get("/students", function(data) {
+      updateTable(data, "#resultTable tbody");
+    }).fail(function(xhr) {
+      alert("Error loading updated data: " + xhr.responseText);
+    });
+  }
+</script>
+</body>
+</html>
